@@ -28,10 +28,10 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up .NET SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "8.0.x"
 
@@ -63,11 +63,26 @@ jobs:
           mkdir -p .deps/steamcmd .deps/valheim
           curl --fail --location https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz \
             | tar --extract --gzip --directory .deps/steamcmd
-          .deps/steamcmd/steamcmd.sh \
-            +force_install_dir "$GITHUB_WORKSPACE/.deps/valheim" \
-            +login anonymous \
-            +app_update 896660 validate \
-            +quit
+          .deps/steamcmd/steamcmd.sh +quit
+
+          for attempt in 1 2 3; do
+            if .deps/steamcmd/steamcmd.sh \
+              +@sSteamCmdForcePlatformType linux \
+              +force_install_dir "$GITHUB_WORKSPACE/.deps/valheim" \
+              +login anonymous \
+              +app_update 896660 validate \
+              +quit; then
+              break
+            fi
+
+            if [ "$attempt" -eq 3 ]; then
+              echo "SteamCMD failed to install Valheim after $attempt attempts." >&2
+              exit 1
+            fi
+
+            echo "SteamCMD attempt $attempt failed; retrying in 10 seconds."
+            sleep 10
+          done
 
       - name: Download build-only BepInEx and ServerSync dependencies
         run: |
