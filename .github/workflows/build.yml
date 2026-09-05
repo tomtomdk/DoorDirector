@@ -1,0 +1,128 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Package version (X.Y.Z); defaults to Directory.Build.props"
+        required: false
+        type: string
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+env:
+  BEPINEX_PACK_VERSION: "5.4.2333"
+  SERVERSYNC_VERSION: "v1.19"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Resolve package version
+        id: version
+        shell: pwsh
+        run: |
+          [xml]$props = Get-Content ./Directory.Build.props -Raw
+          $version = [string]$props.Project.PropertyGroup.DoorDirectorVersion
+          if ('${{ github.event_name }}' -eq 'release') {
+            $version = '${{ github.event.release.tag_name }}'.TrimStart('v')
+          } elseif ('${{ inputs.version }}') {
+            $version = '${{ inputs.version }}'
+          }
+          if ($version -notmatch '^\d+\.\d+\.\d+$') {
+            throw "Version must use X.Y.Z format. Received '$version'."
+          }
+          "MOD_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Install SteamCMD runtime dependencies
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install --yes lib32gcc-s1 lib32stdc++6
+
+      - name: Download Valheim dedicated server assemblies
+        run: |
+          mkdir -p .deps/steamcmd .deps/valheim
+          curl --fail --location https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz \
+            | tar --extract --gzip --directory .deps/steamcmd
+          .deps/steamcmd/steamcmd.sh \
+            +force_install_dir "$GITHUB_WORKSPACE/.deps/valheim" \
+            +login anonymous \
+            +app_update 896660 validate \
+            +quit
+
+      - name: Download build-only BepInEx and ServerSync dependencies
+        run: |
+          mkdir -p .deps/bepinex .deps/serversync
+          curl --fail --location \
+            "https://thunderstore.io/package/download/denikson/BepInExPack_Valheim/${BEPINEX_PACK_VERSION}/" \
+            --output .deps/bepinex.zip
+          unzip -q .deps/bepinex.zip -d .deps/bepinex
+          curl --fail --location \
+            "https://github.com/blaxxun-boop/ServerSync/releases/download/${SERVERSYNC_VERSION}/ServerSync.dll" \
+            --output .deps/serversync/ServerSync.dll
+
+          managed_path="$(find .deps/valheim -type f -name assembly_valheim.dll -printf '%h\n' | head -n 1)"
+          bepinex_core="$(find .deps/bepinex -type f -path '*/BepInEx/core/BepInEx.dll' -printf '%h\n' | head -n 1)"
+          test -n "$managed_path"
+          test -n "$bepinex_core"
+          echo "VALHEIM_MANAGED_PATH=$GITHUB_WORKSPACE/$managed_path" >> "$GITHUB_ENV"
+          echo "BEPINEX_ROOT=$(dirname "$GITHUB_WORKSPACE/$bepinex_core")" >> "$GITHUB_ENV"
+          echo "SERVERSYNC_PATH=$GITHUB_WORKSPACE/.deps/serversync/ServerSync.dll" >> "$GITHUB_ENV"
+
+      - name: Build and create Thunderstore package
+        shell: pwsh
+        run: |
+          ./scripts/package.ps1 `
+            -Version $env:MOD_VERSION `
+            -ValheimManagedPath $env:VALHEIM_MANAGED_PATH `
+            -BepInExRoot $env:BEPINEX_ROOT `
+            -ServerSyncPath $env:SERVERSYNC_PATH
+
+      - name: Validate package contents
+        shell: pwsh
+        run: ./scripts/validate-package.ps1 -PackagePath "artifacts/DoorDirector-$env:MOD_VERSION.zip" -ExpectedVersion $env:MOD_VERSION
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DoorDirector-${{ steps.version.outputs.version }}
+          path: artifacts/DoorDirector-${{ steps.version.outputs.version }}.zip
+          if-no-files-found: error
+
+  release:
+    if: github.event_name == 'release'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download release package
+        uses: actions/download-artifact@v4
+        with:
+          name: DoorDirector-${{ needs.build.outputs.version }}
+          path: artifacts
+
+      - name: Attach package to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/DoorDirector-${{ needs.build.outputs.version }}.zip

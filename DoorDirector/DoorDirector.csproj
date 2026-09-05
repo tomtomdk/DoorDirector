@@ -1,0 +1,97 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>DoorDirector</AssemblyName>
+    <RootNamespace>DoorDirector</RootNamespace>
+    <Authors>tomtomdk</Authors>
+    <Description>Server-synchronized automatic closing and per-prefab behavior for Valheim doors.</Description>
+    <RepositoryUrl>https://github.com/tomtomdk/DoorDirector</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Deterministic>true</Deterministic>
+    <DebugType>portable</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+
+    <ValheimPath Condition="'$(ValheimPath)' == ''">D:\SteamGames\steamapps\common\Valheim</ValheimPath>
+    <ValheimManagedPath Condition="'$(ValheimManagedPath)' == ''">$(ValheimPath)\Valheim_Data\Managed</ValheimManagedPath>
+    <BepInExRoot Condition="Exists('$(ValheimPath)\BepInEx\core\BepInEx.dll')">$(ValheimPath)\BepInEx</BepInExRoot>
+    <BepInExRoot Condition="'$(BepInExRoot)' == '' and Exists('$(APPDATA)\r2modmanPlus-local\Valheim\profiles\Default\BepInEx\core\BepInEx.dll')">$(APPDATA)\r2modmanPlus-local\Valheim\profiles\Default\BepInEx</BepInExRoot>
+    <ServerSyncPath Condition="'$(ServerSyncPath)' == '' and Exists('$(BepInExRoot)\plugins') and $([System.IO.Directory]::GetFiles('$(BepInExRoot)\plugins', 'ServerSync.dll', System.IO.SearchOption.AllDirectories).Length) &gt; 0">$([System.IO.Directory]::GetFiles('$(BepInExRoot)\plugins', 'ServerSync.dll', System.IO.SearchOption.AllDirectories).GetValue(0))</ServerSyncPath>
+    <ServerSyncPath Condition="'$(ServerSyncPath)' == '' and Exists('$(BepInExRoot)\plugins') and $([System.IO.Directory]::GetFiles('$(BepInExRoot)\plugins', 'ServerSync.dll.old', System.IO.SearchOption.AllDirectories).Length) &gt; 0">$([System.IO.Directory]::GetFiles('$(BepInExRoot)\plugins', 'ServerSync.dll.old', System.IO.SearchOption.AllDirectories).GetValue(0))</ServerSyncPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net48" Version="1.0.3" PrivateAssets="all" />
+    <PackageReference Include="ILRepack.Lib.MSBuild.Task" Version="2.0.29" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="assembly_valheim">
+      <HintPath>$(ValheimManagedPath)/assembly_valheim.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(ValheimManagedPath)/UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(ValheimManagedPath)/UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>$(ValheimManagedPath)/UnityEngine.InputLegacyModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.PhysicsModule">
+      <HintPath>$(ValheimManagedPath)/UnityEngine.PhysicsModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="BepInEx">
+      <HintPath>$(BepInExRoot)/core/BepInEx.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(BepInExRoot)/core/0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="ServerSync">
+      <HintPath>$(ServerSyncPath)</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="ValidateGameReferences" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(ValheimManagedPath)/assembly_valheim.dll')" Text="Valheim assembly not found at $(ValheimManagedPath)/assembly_valheim.dll. Set /p:ValheimPath=..." />
+    <Error Condition="!Exists('$(BepInExRoot)/core/BepInEx.dll')" Text="BepInEx 5 was not found. Set /p:BepInExRoot=..." />
+    <Error Condition="!Exists('$(ServerSyncPath)')" Text="ServerSync.dll was not found. Set /p:ServerSyncPath=..." />
+  </Target>
+
+  <Target Name="GenerateBuildInfo" BeforeTargets="CoreCompile">
+    <PropertyGroup>
+      <GeneratedBuildInfo>$(IntermediateOutputPath)BuildInfo.g.cs</GeneratedBuildInfo>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(GeneratedBuildInfo)"
+                      Lines="namespace DoorDirector { internal static class BuildInfo { public const string Version = &quot;$(Version)&quot;%3B } }"
+                      Overwrite="true"
+                      WriteOnlyWhenDifferent="true" />
+    <ItemGroup>
+      <Compile Include="$(GeneratedBuildInfo)" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="MergeServerSync" AfterTargets="Build">
+    <ItemGroup>
+      <AssembliesToMerge Include="$(TargetPath)" />
+      <AssembliesToMerge Include="$(ServerSyncPath)" />
+    </ItemGroup>
+    <ILRepack InputAssemblies="@(AssembliesToMerge)"
+              OutputFile="$(TargetPath)"
+              Internalize="true"
+              DebugInfo="true"
+              Parallel="true"
+              LibraryPath="$(BepInExRoot)/core;$(ValheimManagedPath)" />
+  </Target>
+</Project>

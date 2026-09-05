@@ -1,0 +1,9 @@
+{
+  "name": "DoorDirector",
+  "version_number": "0.1.2",
+  "website_url": "https://github.com/tomtomdk/DoorDirector",
+  "description": "Automatically closes Valheim doors with synchronized per-prefab normal, inverted, ignored, and timeout rules.",
+  "dependencies": [
+    "denikson-BepInExPack_Valheim-5.4.2333"
+  ]
+}
