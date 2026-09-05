@@ -117,7 +117,7 @@ jobs:
         run: ./scripts/validate-package.ps1 -PackagePath "artifacts/DoorDirector-$env:MOD_VERSION.zip" -ExpectedVersion $env:MOD_VERSION
 
       - name: Upload workflow artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: DoorDirector-${{ steps.version.outputs.version }}
           path: artifacts/DoorDirector-${{ steps.version.outputs.version }}.zip
@@ -132,7 +132,7 @@ jobs:
 
     steps:
       - name: Download release package
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: DoorDirector-${{ needs.build.outputs.version }}
           path: artifacts
