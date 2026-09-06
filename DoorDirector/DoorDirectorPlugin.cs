@@ -27,7 +27,12 @@ namespace DoorDirector
         private const string UseDoorRpc = "UseDoor";
         private const string ToggleDoorRpc = "DoorDirector_Toggle";
         private const string ToggleResultRpc = "DoorDirector_ToggleResult";
+        private const string SetDelayRpc = "DoorDirector_SetDelay";
+        private const string SetDelayResultRpc = "DoorDirector_SetDelayResult";
         private const string DoorModeZdoKey = "com.tomtom.doordirector.mode";
+        private const string DoorDelayZdoKey = "com.tomtom.doordirector.delay";
+        private const float MinimumDelay = 0.1f;
+        private const float MaximumDelay = 3600f;
         private const int DoorModeDefault = 0;
         private const int DoorModeEnabled = 1;
         private const int DoorModeDisabled = 2;
@@ -54,9 +59,10 @@ namespace DoorDirector
         private static ConfigEntry<string> _invertedPrefabs;
         private static ConfigEntry<string> _ignoredPrefabs;
         private static ConfigEntry<string> _customDelays;
-        private static ConfigEntry<bool> _allowOwnedDoorToggle;
+        private static ConfigEntry<bool> _allowOwnedDoorControls;
         private static ConfigEntry<float> _ownedDoorDelay;
         private static ConfigEntry<KeyboardShortcut> _ownedDoorToggleHotkey;
+        private static ConfigEntry<KeyboardShortcut> _ownedDoorSetDelayHotkey;
         private static ConfigEntry<bool> _debugLogging;
         private static ConfigEntry<KeyboardShortcut> _debugHotkey;
 
@@ -99,9 +105,24 @@ namespace DoorDirector
                 return;
             }
 
+            if (TextInput.IsVisible() ||
+                Console.IsVisible() ||
+                Menu.IsVisible() ||
+                InventoryGui.IsVisible() ||
+                Minimap.InTextInput() ||
+                (Chat.instance && Chat.instance.HasFocus()))
+            {
+                return;
+            }
+
             if (_ownedDoorToggleHotkey.Value.IsDown())
             {
                 ToggleLookedAtOwnedDoor(player);
+            }
+
+            if (_ownedDoorSetDelayHotkey.Value.IsDown())
+            {
+                PromptForLookedAtOwnedDoorDelay(player);
             }
 
             if (_debugHotkey.Value.IsDown())
@@ -137,14 +158,17 @@ namespace DoorDirector
             _customDelays = BindSynced(RulesSection, "Custom Delays", string.Empty,
                 "Comma-separated prefab_name=seconds entries. Example: wood_door=3,drawbridge=12");
 
-            _allowOwnedDoorToggle = BindSynced(PlayerDoorsSection, "Allow Owned Door Toggle", true,
-                "Allow players to toggle auto-close for individual doors and gates they built.");
+            _allowOwnedDoorControls = BindSynced(PlayerDoorsSection, "Allow Owned Door Controls", true,
+                "Allow players to toggle auto-close and set delays for individual doors and gates they built.");
 
             _ownedDoorDelay = BindSynced(PlayerDoorsSection, "Owned Door Auto Close Delay", 5f,
-                new ConfigDescription("Seconds before a player-enabled individual door closes.", new AcceptableValueRange<float>(0.1f, 3600f)));
+                new ConfigDescription("Default seconds before a player-enabled individual door closes.", new AcceptableValueRange<float>(MinimumDelay, MaximumDelay)));
 
-            _ownedDoorToggleHotkey = Config.Bind(PlayerDoorsSection, "Owned Door Toggle Hotkey", new KeyboardShortcut(KeyCode.F6),
+            _ownedDoorToggleHotkey = Config.Bind(PlayerDoorsSection, "Owned Door Toggle Hotkey", new KeyboardShortcut(KeyCode.G, KeyCode.LeftShift),
                 "Client-only input binding: toggle auto-close for the targeted door or gate you built.");
+
+            _ownedDoorSetDelayHotkey = Config.Bind(PlayerDoorsSection, "Owned Door Set Delay Hotkey", new KeyboardShortcut(KeyCode.T, KeyCode.LeftShift),
+                "Client-only input binding: set the auto-close delay for the targeted door or gate you built.");
 
             _debugLogging = Config.Bind(DebugSection, "Debug Logging", false,
                 "Client-only: log exact Door prefab names and automatic close activity on this machine.");
@@ -159,7 +183,7 @@ namespace DoorDirector
             _invertedPrefabs.SettingChanged += GameplaySettingChanged;
             _ignoredPrefabs.SettingChanged += GameplaySettingChanged;
             _customDelays.SettingChanged += GameplaySettingChanged;
-            _allowOwnedDoorToggle.SettingChanged += GameplaySettingChanged;
+            _allowOwnedDoorControls.SettingChanged += GameplaySettingChanged;
             _ownedDoorDelay.SettingChanged += GameplaySettingChanged;
         }
 
@@ -280,7 +304,7 @@ namespace DoorDirector
             }
 
             inverted = _inverted.Contains(prefab);
-            if (_allowOwnedDoorToggle.Value)
+            if (_allowOwnedDoorControls.Value)
             {
                 ZNetView nview = door ? door.GetComponent<ZNetView>() : null;
                 if (nview && nview.IsValid())
@@ -293,7 +317,7 @@ namespace DoorDirector
 
                     if (doorMode == DoorModeEnabled)
                     {
-                        delay = _ownedDoorDelay.Value;
+                        delay = GetOwnedDoorDelay(nview.GetZDO());
                         return true;
                     }
                 }
@@ -327,6 +351,18 @@ namespace DoorDirector
         private static bool IsPhysicallyOpen(int logicalState, bool inverted)
         {
             return inverted ? logicalState == 0 : logicalState != 0;
+        }
+
+        private static bool IsValidDelay(float delay)
+        {
+            return !float.IsNaN(delay) && !float.IsInfinity(delay) && delay >= MinimumDelay && delay <= MaximumDelay;
+        }
+
+        private static float GetOwnedDoorDelay(ZDO zdo)
+        {
+            float fallback = _ownedDoorDelay.Value;
+            float delay = zdo.GetFloat(DoorDelayZdoKey, fallback);
+            return IsValidDelay(delay) ? delay : fallback;
         }
 
         private static DoorTimerState AdvanceGeneration(Door door)
@@ -420,41 +456,69 @@ namespace DoorDirector
 
         private static void ToggleLookedAtOwnedDoor(Player player)
         {
-            Door door = GetLookedAtDoor(player);
-            if (!door)
+            if (!TryGetOwnedDoorTarget(player, out _, out ZNetView nview))
             {
-                ShowHudMessage("DoorDirector: no Door, gate, or bridge is under the crosshair.");
                 return;
             }
 
-            if (!_enabled.Value || !_allowOwnedDoorToggle.Value)
+            nview.InvokeRPC(ToggleDoorRpc, player.GetPlayerID());
+        }
+
+        private static void PromptForLookedAtOwnedDoorDelay(Player player)
+        {
+            if (!TryGetOwnedDoorTarget(player, out Door door, out ZNetView nview))
             {
-                ShowHudMessage("DoorDirector: individual door toggles are disabled by the server.");
                 return;
+            }
+
+            if (!TextInput.instance)
+            {
+                ShowHudMessage("DoorDirector: the delay input is not available right now.");
+                return;
+            }
+
+            float currentDelay = GetOwnedDoorDelay(nview.GetZDO());
+            TextInput.instance.RequestText(new DoorDelayTextReceiver(door, player.GetPlayerID(), currentDelay), "DoorDirector delay in seconds", 7);
+        }
+
+        private static bool TryGetOwnedDoorTarget(Player player, out Door door, out ZNetView nview)
+        {
+            door = GetLookedAtDoor(player);
+            nview = null;
+            if (!door)
+            {
+                ShowHudMessage("DoorDirector: no Door, gate, or bridge is under the crosshair.");
+                return false;
+            }
+
+            if (!_enabled.Value || !_allowOwnedDoorControls.Value)
+            {
+                ShowHudMessage("DoorDirector: individual door controls are disabled by the server.");
+                return false;
             }
 
             string prefab = GetPrefabName(door);
             if (_ignored.Contains(prefab))
             {
                 ShowHudMessage($"DoorDirector: '{prefab}' is ignored by the server.");
-                return;
+                return false;
             }
 
             Piece piece = GetDoorPiece(door);
             if (!piece || !piece.IsCreator())
             {
-                ShowHudMessage("DoorDirector: you can only toggle doors and gates you built.");
-                return;
+                ShowHudMessage("DoorDirector: you can only change doors and gates you built.");
+                return false;
             }
 
-            ZNetView nview = door.GetComponent<ZNetView>();
+            nview = door.GetComponent<ZNetView>();
             if (!nview || !nview.IsValid())
             {
                 ShowHudMessage("DoorDirector: the targeted door is not network-ready.");
-                return;
+                return false;
             }
 
-            nview.InvokeRPC(ToggleDoorRpc, player.GetPlayerID());
+            return true;
         }
 
         private static void RegisterDoorRpcs(Door door)
@@ -467,6 +531,8 @@ namespace DoorDirector
 
             nview.Register<long>(ToggleDoorRpc, (sender, playerId) => HandleToggleDoorRequest(door, sender, playerId));
             nview.Register<int, float>(ToggleResultRpc, (sender, result, delay) => HandleToggleDoorResult(door, result, delay));
+            nview.Register<long, float>(SetDelayRpc, (sender, playerId, delay) => HandleSetDoorDelayRequest(door, sender, playerId, delay));
+            nview.Register<int, float>(SetDelayResultRpc, (sender, result, delay) => HandleSetDoorDelayResult(door, result, delay));
         }
 
         private static void HandleToggleDoorRequest(Door door, long sender, long playerId)
@@ -478,11 +544,11 @@ namespace DoorDirector
             }
 
             int result;
-            float delay = _ownedDoorDelay.Value;
+            float delay = GetOwnedDoorDelay(nview.GetZDO());
             string prefab = GetPrefabName(door);
             Piece piece = GetDoorPiece(door);
 
-            if (!_enabled.Value || !_allowOwnedDoorToggle.Value)
+            if (!_enabled.Value || !_allowOwnedDoorControls.Value)
             {
                 result = ToggleResultDisabledByServer;
             }
@@ -517,11 +583,59 @@ namespace DoorDirector
             nview.InvokeRPC(sender, ToggleResultRpc, result, delay);
         }
 
+        private static void HandleSetDoorDelayRequest(Door door, long sender, long playerId, float requestedDelay)
+        {
+            ZNetView nview = door ? door.GetComponent<ZNetView>() : null;
+            if (!nview || !nview.IsValid() || !nview.IsOwner())
+            {
+                return;
+            }
+
+            int result;
+            string prefab = GetPrefabName(door);
+            Piece piece = GetDoorPiece(door);
+            if (!_enabled.Value || !_allowOwnedDoorControls.Value)
+            {
+                result = ToggleResultDisabledByServer;
+            }
+            else if (_ignored.Contains(prefab))
+            {
+                result = ToggleResultIgnored;
+            }
+            else if (!piece || piece.GetCreator() == 0L || piece.GetCreator() != playerId)
+            {
+                result = ToggleResultNotCreator;
+            }
+            else if (!IsValidDelay(requestedDelay))
+            {
+                result = SetDelayResultInvalid;
+            }
+            else
+            {
+                nview.GetZDO().Set(DoorDelayZdoKey, requestedDelay);
+                nview.GetZDO().Set(DoorModeZdoKey, DoorModeEnabled);
+
+                DoorTimerState timerState = AdvanceGeneration(door);
+                int currentState = GetLogicalState(door);
+                ScheduleIfOpen(door, currentState, timerState, currentState > 0);
+
+                result = SetDelayResultSuccess;
+                if (_debugLogging.Value)
+                {
+                    LogInstance.LogInfo($"Player-owned delay for '{prefab}' set to {requestedDelay.ToString(CultureInfo.InvariantCulture)}s.");
+                }
+            }
+
+            nview.InvokeRPC(sender, SetDelayResultRpc, result, requestedDelay);
+        }
+
         private const int ToggleResultEnabled = 0;
         private const int ToggleResultDisabled = 1;
         private const int ToggleResultNotCreator = 2;
         private const int ToggleResultDisabledByServer = 3;
         private const int ToggleResultIgnored = 4;
+        private const int SetDelayResultSuccess = 0;
+        private const int SetDelayResultInvalid = 5;
 
         private static void HandleToggleDoorResult(Door door, int result, float delay)
         {
@@ -542,11 +656,76 @@ namespace DoorDirector
                     message = $"DoorDirector: '{prefab}' is ignored by the server.";
                     break;
                 default:
-                    message = "DoorDirector: individual door toggles are disabled by the server.";
+                    message = "DoorDirector: individual door controls are disabled by the server.";
                     break;
             }
 
             ShowHudMessage(message);
+        }
+
+        private static void HandleSetDoorDelayResult(Door door, int result, float delay)
+        {
+            string prefab = GetPrefabName(door);
+            string message;
+            switch (result)
+            {
+                case SetDelayResultSuccess:
+                    message = $"DoorDirector: auto-close enabled for '{prefab}' at {delay.ToString(CultureInfo.InvariantCulture)}s.";
+                    break;
+                case ToggleResultNotCreator:
+                    message = "DoorDirector: you can only change doors and gates you built.";
+                    break;
+                case ToggleResultIgnored:
+                    message = $"DoorDirector: '{prefab}' is ignored by the server.";
+                    break;
+                case SetDelayResultInvalid:
+                    message = $"DoorDirector: delay must be between {MinimumDelay.ToString(CultureInfo.InvariantCulture)} and {MaximumDelay.ToString(CultureInfo.InvariantCulture)} seconds.";
+                    break;
+                default:
+                    message = "DoorDirector: individual door controls are disabled by the server.";
+                    break;
+            }
+
+            ShowHudMessage(message);
+        }
+
+        private sealed class DoorDelayTextReceiver : TextReceiver
+        {
+            private readonly Door _door;
+            private readonly long _playerId;
+            private readonly float _currentDelay;
+
+            public DoorDelayTextReceiver(Door door, long playerId, float currentDelay)
+            {
+                _door = door;
+                _playerId = playerId;
+                _currentDelay = currentDelay;
+            }
+
+            public string GetText()
+            {
+                return _currentDelay.ToString(CultureInfo.InvariantCulture);
+            }
+
+            public void SetText(string text)
+            {
+                bool parsed = float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out float delay) ||
+                              float.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out delay);
+                if (!parsed || !IsValidDelay(delay))
+                {
+                    ShowHudMessage($"DoorDirector: delay must be between {MinimumDelay.ToString(CultureInfo.InvariantCulture)} and {MaximumDelay.ToString(CultureInfo.InvariantCulture)} seconds.");
+                    return;
+                }
+
+                ZNetView nview = _door ? _door.GetComponent<ZNetView>() : null;
+                if (!nview || !nview.IsValid())
+                {
+                    ShowHudMessage("DoorDirector: the targeted door is no longer available.");
+                    return;
+                }
+
+                nview.InvokeRPC(SetDelayRpc, _playerId, delay);
+            }
         }
 
         private static void ShowHudMessage(string message)

@@ -12,6 +12,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - Added a configurable hotkey for toggling auto-close on individual player-built doors and gates.
 - Added a server-synchronized delay for player-enabled doors.
+- Added a second shortcut that opens Valheim's text input to set and persist a custom per-door delay.
 - Persisted per-door overrides in Valheim's native networked object data.
 
 ## [0.1.2] - 2026-09-06

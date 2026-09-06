@@ -7,7 +7,7 @@ DoorDirector automatically closes Valheim doors after a configurable delay. It w
 - Automatic closing using Valheim's native networked Door state.
 - Normal, inverted, and ignored behavior for individual prefabs.
 - Default and per-prefab closing delays.
-- An `F6` toggle for individual player-built doors and gates.
+- Separate shortcuts for toggling and setting the delay on individual player-built doors and gates.
 - Server-synchronized gameplay settings with configuration locking.
 - Automatic cancellation when a player operates the Door again.
 - Exact prefab-name diagnostics for configuring modded doors.
@@ -27,9 +27,9 @@ Gameplay settings come from the server. When `Lock Configuration` is enabled, no
 
 ### Player-built doors
 
-Look at a door or gate you built and press `F6` to toggle auto-close for that individual object. The choice is stored on the networked object and persists with the world.
+Look at a door or gate you built and press `Left Shift + G` to toggle auto-close for that individual object. Press `Left Shift + T` to enter a custom delay for it; setting a delay also enables auto-close. The enabled state and custom delay are stored on the networked object and persist with the world.
 
-`Allow Owned Door Toggle` lets the server enable or disable this feature. `Owned Door Auto Close Delay` sets the synchronized delay used for individually enabled doors. Global disable and ignored-prefab rules always take precedence.
+`Allow Owned Door Controls` lets the server enable or disable these controls. `Owned Door Auto Close Delay` sets the synchronized default for individually enabled doors. Global disable and ignored-prefab rules always take precedence. Both shortcuts can be reassigned in ConfigurationManager or the config file.
 
 ### Prefab rules
 
@@ -52,7 +52,7 @@ Ignored takes precedence over inverted, and inverted takes precedence over norma
 
 ## Finding prefab names
 
-Look at a Door, gate, or bridge and press `F7`. DoorDirector prints its exact prefab name on the HUD and in the BepInEx log. This diagnostic hotkey is separate from the `F6` owned-door toggle.
+Look at a Door, gate, or bridge and press `F7`. DoorDirector prints its exact prefab name on the HUD and in the BepInEx log. This diagnostic hotkey is separate from the owned-door controls.
 
 You can also run this command in the Valheim console:
 
