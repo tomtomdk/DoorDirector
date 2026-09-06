@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-06
+
+### Added
+
+- Added a configurable hotkey for toggling auto-close on individual player-built doors and gates.
+- Added a server-synchronized delay for player-enabled doors.
+- Persisted per-door overrides in Valheim's native networked object data.
+
 ## [0.1.2] - 2026-09-06
 
 ### Fixed
@@ -24,6 +32,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Exact prefab diagnostics through logging, an `F7` hotkey, and the `doordirector_prefab` console command.
 - Dedicated-server support and a Thunderstore/r2modman package workflow.
 
-[Unreleased]: https://github.com/tomtomdk/DoorDirector/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/tomtomdk/DoorDirector/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/tomtomdk/DoorDirector/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/tomtomdk/DoorDirector/compare/v0.1.0...v0.1.2
 [0.1.0]: https://github.com/tomtomdk/DoorDirector/releases/tag/v0.1.0
