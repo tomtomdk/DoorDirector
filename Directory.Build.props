@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <DoorDirectorVersion>0.2.0</DoorDirectorVersion>
+    <DoorDirectorVersion>0.2.1</DoorDirectorVersion>
     <Version Condition="'$(Version)' == ''">$(DoorDirectorVersion)</Version>
   </PropertyGroup>
 </Project>

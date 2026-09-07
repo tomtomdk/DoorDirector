@@ -9,7 +9,7 @@ DoorDirector automatically closes Valheim doors after a configurable delay. It w
 - Default and per-prefab closing delays.
 - Separate shortcuts for toggling and setting the delay on individual player-built doors and gates.
 - Server-synchronized gameplay settings with configuration locking.
-- Automatic cancellation when a player operates the Door again.
+- Automatic cancellation when a player or linked switch operates the Door again.
 - Exact prefab-name diagnostics for configuring modded doors.
 - Dedicated-server and BepInEx ConfigurationManager support.
 

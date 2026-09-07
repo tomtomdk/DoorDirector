@@ -372,13 +372,47 @@ namespace DoorDirector
             return state;
         }
 
-        private static void HandleDoorStateChanged(Door door, int previousState)
+        private static void InitializeDoorObservation(Door door)
         {
-            DoorTimerState timerState = AdvanceGeneration(door);
+            DoorTimerState timerState = _timerStates.GetValue(door, _ => new DoorTimerState());
+            timerState.LastObservedState = GetLogicalState(door);
+            timerState.HasObservedState = true;
+        }
+
+        private static void ObserveDoorState(Door door)
+        {
+            if (!door)
+            {
+                return;
+            }
+
+            DoorTimerState timerState = _timerStates.GetValue(door, _ => new DoorTimerState());
             int currentState = GetLogicalState(door);
+            if (!timerState.HasObservedState)
+            {
+                timerState.LastObservedState = currentState;
+                timerState.HasObservedState = true;
+                return;
+            }
+
+            int previousState = timerState.LastObservedState;
             if (currentState == previousState)
             {
                 return;
+            }
+
+            timerState.LastObservedState = currentState;
+            timerState.Generation++;
+
+            ZNetView nview = door.GetComponent<ZNetView>();
+            if (!nview || !nview.IsValid() || !nview.IsOwner())
+            {
+                return;
+            }
+
+            if (_debugLogging.Value)
+            {
+                LogInstance.LogInfo($"Observed '{GetPrefabName(door)}' logical state {previousState} -> {currentState}.");
             }
 
             ScheduleIfOpen(door, currentState, timerState, previousState > 0);
@@ -423,7 +457,7 @@ namespace DoorDirector
             }
 
             ZNetView nview = door.GetComponent<ZNetView>();
-            if (!nview || !nview.IsValid())
+            if (!nview || !nview.IsValid() || !nview.IsOwner())
             {
                 yield break;
             }
@@ -771,6 +805,8 @@ namespace DoorDirector
         private sealed class DoorTimerState
         {
             public long Generation;
+            public int LastObservedState;
+            public bool HasObservedState;
         }
 
         [HarmonyPatch(typeof(Door), "Awake")]
@@ -779,6 +815,16 @@ namespace DoorDirector
             private static void Postfix(Door __instance)
             {
                 RegisterDoorRpcs(__instance);
+                InitializeDoorObservation(__instance);
+            }
+        }
+
+        [HarmonyPatch(typeof(Door), "UpdateState")]
+        private static class DoorUpdateStatePatch
+        {
+            private static void Postfix(Door __instance)
+            {
+                ObserveDoorState(__instance);
             }
         }
 
@@ -794,18 +840,5 @@ namespace DoorDirector
             }
         }
 
-        [HarmonyPatch(typeof(Door), "RPC_UseDoor")]
-        private static class DoorUseRpcPatch
-        {
-            private static void Prefix(Door __instance, out int __state)
-            {
-                __state = GetLogicalState(__instance);
-            }
-
-            private static void Postfix(Door __instance, int __state)
-            {
-                HandleDoorStateChanged(__instance, __state);
-            }
-        }
     }
 }
