@@ -33,6 +33,8 @@ namespace DoorDirector
         private const string DoorDelayZdoKey = "com.tomtom.doordirector.delay";
         private const float MinimumDelay = 0.1f;
         private const float MaximumDelay = 3600f;
+        private const float CloseRetryInterval = 0.25f;
+        private const int MaximumCloseAttempts = 240;
         private const int DoorModeDefault = 0;
         private const int DoorModeEnabled = 1;
         private const int DoorModeDisabled = 2;
@@ -440,34 +442,48 @@ namespace DoorDirector
         {
             yield return new WaitForSeconds(delay);
 
-            if (!door ||
-                rulesRevision != _rulesRevision ||
-                !_timerStates.TryGetValue(door, out DoorTimerState timerState) ||
-                timerState.Generation != generation)
+            for (int attempt = 1; attempt <= MaximumCloseAttempts; attempt++)
             {
-                yield break;
+                if (!door ||
+                    rulesRevision != _rulesRevision ||
+                    !_timerStates.TryGetValue(door, out DoorTimerState timerState) ||
+                    timerState.Generation != generation)
+                {
+                    yield break;
+                }
+
+                int currentState = GetLogicalState(door);
+                if (currentState != scheduledState ||
+                    !TryGetRule(door, prefab, out bool inverted, out _) ||
+                    !IsPhysicallyOpen(currentState, inverted))
+                {
+                    yield break;
+                }
+
+                ZNetView nview = door.GetComponent<ZNetView>();
+                if (!nview || !nview.IsValid() || !nview.IsOwner())
+                {
+                    yield break;
+                }
+
+                if (attempt == 1 && _debugLogging.Value)
+                {
+                    LogInstance.LogInfo($"Auto-closing '{prefab}' through Valheim's {UseDoorRpc} RPC.");
+                }
+
+                nview.InvokeRPC(UseDoorRpc, reopenForward);
+                yield return new WaitForSeconds(CloseRetryInterval);
             }
 
-            int currentState = GetLogicalState(door);
-            if (currentState != scheduledState ||
-                !TryGetRule(door, prefab, out bool inverted, out _) ||
-                !IsPhysicallyOpen(currentState, inverted))
+            if (_debugLogging.Value &&
+                door &&
+                rulesRevision == _rulesRevision &&
+                _timerStates.TryGetValue(door, out DoorTimerState finalTimerState) &&
+                finalTimerState.Generation == generation &&
+                GetLogicalState(door) == scheduledState)
             {
-                yield break;
+                LogInstance.LogWarning($"Stopped retrying auto-close for '{prefab}' after {MaximumCloseAttempts * CloseRetryInterval:0}s; Valheim kept rejecting the interaction.");
             }
-
-            ZNetView nview = door.GetComponent<ZNetView>();
-            if (!nview || !nview.IsValid() || !nview.IsOwner())
-            {
-                yield break;
-            }
-
-            if (_debugLogging.Value)
-            {
-                LogInstance.LogInfo($"Auto-closing '{prefab}' through Valheim's {UseDoorRpc} RPC.");
-            }
-
-            nview.InvokeRPC(UseDoorRpc, reopenForward);
         }
 
         private static Door GetLookedAtDoor(Player player)

@@ -12,6 +12,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - Observe replicated Door state changes so switches and other mods that update ZDO state directly cancel and reschedule auto-close timers correctly.
 - Prevent a timer created by a previous network owner from operating a door after ownership changes.
+- Retry Valheim's native close RPC while long door or drawbridge animations temporarily reject interaction.
 
 ## [0.2.0] - 2026-09-06
 
