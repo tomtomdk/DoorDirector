@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-09-08
+
+### Changed
+
+- Marked the `Diaspora-DoorDirector` Thunderstore listing as deprecated and directed users to the new `TomTomDK-DoorDirector` listing.
+
 ## [0.2.1] - 2026-09-08
 
 ### Fixed
@@ -41,7 +47,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Exact prefab diagnostics through logging, an `F7` hotkey, and the `doordirector_prefab` console command.
 - Dedicated-server support and a Thunderstore/r2modman package workflow.
 
-[Unreleased]: https://github.com/tomtomdk/DoorDirector/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/tomtomdk/DoorDirector/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/tomtomdk/DoorDirector/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/tomtomdk/DoorDirector/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/tomtomdk/DoorDirector/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/tomtomdk/DoorDirector/compare/v0.1.0...v0.1.2
