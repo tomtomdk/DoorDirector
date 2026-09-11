@@ -57,7 +57,7 @@ try {
     if ($ExpectedVersion -and $manifest.version_number -ne $ExpectedVersion) {
         throw "manifest.json version '$($manifest.version_number)' does not match '$ExpectedVersion'."
     }
-    if ($manifest.dependencies -notcontains "denikson-BepInExPack_Valheim-5.4.2333") {
+    if ($manifest.dependencies -notcontains "denikson-BepInExPack_Valheim-5.4.2350") {
         throw "manifest.json is missing the required BepInEx dependency."
     }
 

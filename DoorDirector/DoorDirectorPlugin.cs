@@ -844,7 +844,7 @@ namespace DoorDirector
             }
         }
 
-        [HarmonyPatch(typeof(Door), nameof(Door.Interact))]
+        [HarmonyPatch(typeof(Door), nameof(Door.Interact), new[] { typeof(Humanoid), typeof(bool), typeof(bool) })]
         private static class DoorInteractPatch
         {
             private static void Prefix(Door __instance, bool hold)

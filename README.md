@@ -1,8 +1,8 @@
 # DoorDirector
 
-> **This Thunderstore package has moved.** The `Diaspora-DoorDirector` listing is deprecated and will no longer receive updates. Install and follow [TomTomDK-DoorDirector](https://thunderstore.io/c/valheim/p/TomTomDK/DoorDirector/) for future releases.
-
 DoorDirector automatically closes Valheim doors after a configurable delay. It works with ordinary doors and modded `Door` components such as gates and drawbridges.
+
+Compatible with Valheim 1.0. Tested against Valheim 1.0.7 and BepInExPack Valheim 5.4.2350.
 
 ## Features
 

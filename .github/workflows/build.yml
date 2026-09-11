@@ -17,7 +17,7 @@ permissions:
   contents: read
 
 env:
-  BEPINEX_PACK_VERSION: "5.4.2333"
+  BEPINEX_PACK_VERSION: "5.4.2350"
   SERVERSYNC_VERSION: "v1.19"
 
 jobs:

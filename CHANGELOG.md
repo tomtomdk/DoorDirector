@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-11
+
+### Changed
+
+- Updated and validated Harmony integration against Valheim 1.0.7's current `Door` implementation.
+- Updated the required BepInExPack Valheim version to 5.4.2350 for Unity 6 and Valheim 1.0 compatibility.
+- Prepared the public package README for the `TomTomDK-DoorDirector` Thunderstore listing.
+
 ## [0.2.2] - 2026-09-08
 
 ### Changed
@@ -47,7 +55,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Exact prefab diagnostics through logging, an `F7` hotkey, and the `doordirector_prefab` console command.
 - Dedicated-server support and a Thunderstore/r2modman package workflow.
 
-[Unreleased]: https://github.com/tomtomdk/DoorDirector/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/tomtomdk/DoorDirector/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/tomtomdk/DoorDirector/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/tomtomdk/DoorDirector/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/tomtomdk/DoorDirector/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/tomtomdk/DoorDirector/compare/v0.1.2...v0.2.0
